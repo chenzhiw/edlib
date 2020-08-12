@@ -17,17 +17,20 @@ if USE_CYTHON:
 else:
     edlib_module_src = "edlib.bycython.cpp"
 
-# Load README into long description.
-here = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
-    long_description = f.read()
+# Load README.rst into long description.
+# User can skip using README.rst as long description: EDLIB_OMIT_README_RST=1 python setup.py install
+OMIT_README_RST = os.getenv('EDLIB_OMIT_README_RST', False)
+if not OMIT_README_RST:
+    here = os.path.abspath(os.path.dirname(__file__))
+    with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
+        long_description = f.read()
 
 setup(
     # Information
     name = "edlib",
     description = "Lightweight, super fast library for sequence alignment using edit (Levenshtein) distance.",
     long_description = long_description,
-    version = "1.2.3-1",
+    version = "1.3.8.post1",
     url = "https://github.com/Martinsos/edlib",
     author = "Martin Sosic",
     author_email = "sosic.martin@gmail.com",

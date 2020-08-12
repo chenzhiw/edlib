@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
-project(edlib)
+project(edlib VERSION 1.2.6)
+
+option(EDLIB_ENABLE_INSTALL "Generate the install target" ON)
 
 set(MACOSX (${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))
 
@@ -7,9 +9,15 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
   message("Debug mode")
 endif()
 
+include(GNUInstallDirs)
+include(CheckCXXCompilerFlag)
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)  # Falling back to different standard it not allowed.
-set(CMAKE_CXX_EXTENSIONS NO)  # Make sure no compiler-specific features are used.
+set(CMAKE_CXX_EXTENSIONS OFF)  # Make sure no compiler-specific features are used.
+
+# Build edlib as static library by default
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build all libraries as shared")
 
 # Set strict warnings.
 if(MSVC)
@@ -21,6 +29,15 @@ if(MSVC)
   endif()
 else()
   message("Setting warning flags")
+
+  check_cxx_compiler_flag(-Wold-style-cast WOLD_STYLE_CAST)
+  if (WOLD_STYLE_CAST)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast")
+  endif()
+  check_cxx_compiler_flag(-Wshadow WSHADOW)
+  if (WSHADOW)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wshadow")
+  endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic")
 endif()
 
@@ -32,31 +49,69 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 file(GLOB SOURCES "edlib/src/*.cpp")
 
 # Create libraries.
-add_library(edlib SHARED ${SOURCES})
+add_library(edlib ${SOURCES})
+set_target_properties(edlib
+    PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION})
 
 target_include_directories(edlib PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/edlib/include>
     $<INSTALL_INTERFACE:include>)
 
-add_library(edlib_static STATIC ${SOURCES})
-
-target_include_directories(edlib_static PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/edlib/include>
-    $<INSTALL_INTERFACE:include>)
-
 # Build binaries.
 add_executable(helloWorld apps/hello-world/helloWorld.c)
-target_link_libraries(helloWorld edlib_static)
+target_link_libraries(helloWorld edlib)
 
-add_executable(runTests test/runTests.cpp)
-target_link_libraries(runTests edlib_static)
+include(CTest)
+if (BUILD_TESTING)
+  add_executable(runTests test/runTests.cpp)
+  target_link_libraries(runTests edlib)
+
+  add_test(edlib_tests ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/runTests)
+endif()
 
 if (NOT WIN32) # If on windows, do not build binaries that do not support windows.
   add_executable(edlib-aligner apps/aligner/aligner.cpp)
-  target_link_libraries(edlib-aligner edlib_static)
+  target_link_libraries(edlib-aligner edlib)
 endif()
 
+# configure and install pkg-config file
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/edlib.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/edlib-1.pc
+    @ONLY)
 
-# Create target 'install' for installing libraries.
-install(TARGETS edlib edlib_static DESTINATION lib)
-install(FILES edlib/include/edlib.h DESTINATION include)
+if(EDLIB_ENABLE_INSTALL)
+	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/edlib-1.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+	include(CMakePackageConfigHelpers)
+	set(EDLIB_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/edlib" CACHE STRING
+	  "Installation directory for cmake files, relative to ${CMAKE_INSTALL_PREFIX}.")
+	set(version_config "${PROJECT_BINARY_DIR}/edlib-config-version.cmake")
+	set(project_config "${PROJECT_BINARY_DIR}/edlib-config.cmake")
+	set(targets_export_name edlib-targets)
+
+	# Generate the version, config and target files into the build directory.
+	write_basic_package_version_file(
+		${version_config}
+		VERSION ${VERSION}
+		COMPATIBILITY AnyNewerVersion)
+	configure_package_config_file(
+		${PROJECT_SOURCE_DIR}/edlib-config.cmake.in
+		${project_config}
+		INSTALL_DESTINATION ${EDLIB_CMAKE_DIR})
+	export(TARGETS edlib NAMESPACE edlib::
+		FILE ${PROJECT_BINARY_DIR}/${targets_export_name}.cmake)
+
+	# Install version, config and target files.
+	# These are cmake config files and they are useful for some consumers, for example vcpkg.
+	install(
+		FILES ${project_config} ${version_config}
+		DESTINATION ${EDLIB_CMAKE_DIR})
+	install(EXPORT ${targets_export_name} DESTINATION ${EDLIB_CMAKE_DIR}
+		NAMESPACE edlib::)
+	
+	# Create target 'install' for installing libraries.
+	install(TARGETS edlib EXPORT ${targets_export_name} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+	install(FILES edlib/include/edlib.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif()

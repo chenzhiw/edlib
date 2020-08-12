@@ -1,6 +1,7 @@
 #ifndef SIMPLE_EDIT_DISTANCE_H
 #define SIMPLE_EDIT_DISTANCE_H
 
+#include <algorithm>
 #include <cstdio>
 #include <vector>
 #include "edlib.h"
@@ -22,14 +23,31 @@ int min3(int x, int y, int z) {
 
 int calcEditDistanceSimple(const char* query, int queryLength,
                            const char* target, int targetLength,
-                           EdlibAlignMode mode, int* score,
+                           const EdlibAlignMode mode, int* score,
                            int** positions_, int* numPositions_) {
-    int* C = new int[queryLength];
-    int* newC = new int[queryLength];
-
     int bestScore = -1;
     vector<int> positions;
-    int numPositions = 0;
+
+    // Handle as a special situation when one of the sequences has length 0.
+    if (queryLength == 0 || targetLength == 0) {
+        if (mode == EDLIB_MODE_NW) {
+            *score = std::max(queryLength, targetLength);
+            *positions_ = new int[1];
+            *positions_[0] = targetLength - 1;
+            *numPositions_ = 1;
+        } else if (mode == EDLIB_MODE_SHW || mode == EDLIB_MODE_HW) {
+            *score = queryLength;
+            *positions_ = new int[1];
+            *positions_[0] = -1;
+            *numPositions_ = 1;
+        } else {
+            return EDLIB_STATUS_ERROR;
+        }
+        return EDLIB_STATUS_OK;
+    }
+
+    int* C = new int[queryLength];
+    int* newC = new int[queryLength];
 
     // set first column (column zero)
     for (int i = 0; i < queryLength; i++) {
@@ -56,15 +74,13 @@ int calcEditDistanceSimple(const char* query, int queryLength,
             printf("\n");*/
 
         if (mode != EDLIB_MODE_NW || c == targetLength - 1) { // For NW check only last column
-            int score = newC[queryLength - 1];
-            if (bestScore == -1 || score <= bestScore) {
-                if (score < bestScore) {
+            int newScore = newC[queryLength - 1];
+            if (bestScore == -1 || newScore <= bestScore) {
+                if (newScore < bestScore) {
                     positions.clear();
-                    numPositions = 0;
                 }
-                bestScore = score;
+                bestScore = newScore;
                 positions.push_back(c);
-                numPositions++;
             }
         }
 
@@ -79,7 +95,7 @@ int calcEditDistanceSimple(const char* query, int queryLength,
     *score = bestScore;
     if (positions.size() > 0) {
         *positions_ = new int[positions.size()];
-        *numPositions_ = (int) positions.size();
+        *numPositions_ = static_cast<int>(positions.size());
         copy(positions.begin(), positions.end(), *positions_);
     } else {
         *positions_ = NULL;

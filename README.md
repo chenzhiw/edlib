@@ -14,8 +14,12 @@ Calculating edit distance of two strings is as simple as:
 edlibAlign("hello", 5, "world!", 6, edlibDefaultAlignConfig()).editDistance;
 ```
 
+Edlib is also available for **Python** [![PyPI version](https://img.shields.io/pypi/v/edlib.svg) (Click here for Python README)](https://pypi.python.org/pypi/edlib), with code residing at [bindings/python](bindings/python).
+
+There is also non-official [binding for Julia](https://github.com/cjdoris/Edlib.jl) by @cjdoris.
+
 ## Features
-* Calculates **edit distance (Levehnstein distance)**.
+* Calculates **edit distance (Levenshtein distance)**.
 * It can find **optimal alignment path** (instructions how to transform first sequence into the second sequence).
 * It can find just the **start and/or end locations of alignment path** - can be useful when speed is more important than having exact alignment path.
 * Supports **multiple [alignment methods](#alignment-methods)**: global(**NW**), prefix(**SHW**) and infix(**HW**), each of them useful for different scenarios.
@@ -23,7 +27,7 @@ edlibAlign("hello", 5, "world!", 6, edlibDefaultAlignConfig()).editDistance;
 * It can easily handle small or **very large sequences**, even when finding alignment path, while consuming very little memory.
 * **Super fast** thanks to Myers's bit-vector algorithm.
 
-Edlib is also available for **Python** [![PyPI version](https://img.shields.io/pypi/v/edlib.svg)](https://pypi.python.org/pypi/edlib) and **Node.js** [![npm version](https://img.shields.io/npm/v/node-edlib.svg)](https://www.npmjs.com/package/node-edlib).
+
 
 
 ## Contents
@@ -110,7 +114,7 @@ edlib/  -> copied from edlib
 helloWorld.cpp -> your program
 ```
 
-Now you can compile it with `c++ helloWorld.cpp -o helloWorld -I edlib/include -L edlib -ledlib_static`.
+Now you can compile it with `c++ helloWorld.cpp -o helloWorld -I edlib/include -L edlib -ledlib`.
 
 ### Approach #3: Install edlib library on machine.
 Alternatively, you could avoid copying any Edlib files and instead install libraries by running `sudo make install` (check [Building](#building)). Now, all you have to do to compile your project is `c++ helloWorld.cpp -o helloWorld -ledlib`.
@@ -120,9 +124,9 @@ If you get error message like `cannot open shared object file: No such file or d
 If you are using CMake for compilation, we suggest adding edlib as a git submodule with the command `git submodule add https://github.com/martinsos/edlib vendor/edlib`. Afterwards, modify your top level CMakeLists.txt file accordingly:
 ```
 add_subdirectory(vendor/edlib EXCLUDE_FROM_ALL)
-target_link_libraries(your_exe edlib) # or target_link_libraries(your_exe edlib_static)
+target_link_libraries(your_exe edlib) # or target_link_libraries(your_exe edlib)
 ```
-The `add_subdirectory` command adds a folder to the build tree, meaning it will run CMakeLists.txt from the included folder as well. Flag `EXCLUDE_FROM_ALL` disables building (and instalment) of targets in the added folder which are not needed in your project. In the above example only the library `edlib` (or `edlib_static`) will be build, while `edlib-aligner`, `hello_world` and the rest won't. In order to access the `edlib` API, add `#include "edlib.h"` in your source file (CMake will automatically update your include path).
+The `add_subdirectory` command adds a folder to the build tree, meaning it will run CMakeLists.txt from the included folder as well. Flag `EXCLUDE_FROM_ALL` disables building (and instalment) of targets in the added folder which are not needed in your project. In the above example only the (static) library `edlib` will be build, while `edlib-aligner`, `hello_world` and the rest won't. In order to access the `edlib` API, add `#include "edlib.h"` in your source file (CMake will automatically update your include path).
 
 
 For more example projects take a look at applications in [apps/](apps/).
@@ -140,6 +144,8 @@ if (result.status == EDLIB_STATUS_OK) {
 }
 edlibFreeAlignResult(result);
 ```
+
+NOTE: One character is expected to occupy one char/byte, meaning that characters spanning multiple chars/bytes are not supported. As long as your alphabet size is <= 256 you can manually map it to numbers/chars from 0 to 255 and solve this that way, but if its size is > 256 then you will not be able to use Edlib.
 
 ### Configuring edlibAlign()
 `edlibAlign` takes configuration object (it is a struct `EdlibAlignConfig`), which allows you to further customize how alignment will be done. You can choose [alignment method](#alignment-methods), tell edlib what to calculate (just edit distance or also path and locations) and set upper limit for edit distance.

@@ -2,6 +2,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <cstring>
+#include <climits>
 
 #include "edlib.h"
 #include "SimpleEditDistance.h"
@@ -34,7 +35,7 @@ int main(int argc, char* argv[]) {
     // per each algorithm. Default is 100.
     int numRandomTests = 100;
     if (argc > 1) {
-        numRandomTests = (int) strtol(argv[1], NULL, 10);
+        numRandomTests = static_cast<int>(strtol(argv[1], NULL, 10));
     }
 
     srand(42);
@@ -78,7 +79,7 @@ int main(int argc, char* argv[]) {
 
 void fillRandomly(char* seq, int seqLength, int alphabetLength) {
     for (int i = 0; i < seqLength; i++)
-        seq[i] = (char) rand() % alphabetLength;
+        seq[i] = static_cast<char>(rand()) % alphabetLength;
 }
 
 // Returns true if all tests passed, false otherwise.
@@ -93,8 +94,8 @@ bool runRandomTests(int numTests, EdlibAlignMode mode, bool findAlignment) {
         bool failed = false;
         int queryLength = 50 + rand() % 300;
         int targetLength = 500 + rand() % 10000;
-        char* query = (char *) malloc(sizeof(char) * queryLength);
-        char* target = (char *) malloc(sizeof(char) * targetLength);
+        char* query = static_cast<char *>(malloc(sizeof(char) * queryLength));
+        char* target = static_cast<char *>(malloc(sizeof(char) * targetLength));
         fillRandomly(query, queryLength, alphabetLength);
         fillRandomly(target, targetLength, alphabetLength);
 
@@ -150,11 +151,11 @@ bool runRandomTests(int numTests, EdlibAlignMode mode, bool findAlignment) {
             printf("Number of endLocations returned is not equal! Expected %d, got %d\n",
                    numLocations2, result.numLocations);
         } else {
-            for (int i = 0; i < result.numLocations; i++) {
-                if (result.endLocations[i] != endLocations2[i]) {
+            for (int j = 0; j < result.numLocations; j++) {
+                if (result.endLocations[j] != endLocations2[j]) {
                     failed = true;
                     printf("EndLocations at %d are not equal! Expected %d, got %d\n",
-                           i, endLocations2[i], result.endLocations[i]);
+                           j, endLocations2[j], result.endLocations[j]);
                     break;
                 }
             }
@@ -203,8 +204,8 @@ bool runRandomTests(int numTests, EdlibAlignMode mode, bool findAlignment) {
     printf("%d/%d", numTests - numTestsFailed, numTests);
     printf("\x1B[0m");
     printf(" random tests passed!\n");
-    double mTime = ((double)(timeEdlib))/CLOCKS_PER_SEC;
-    double sTime = ((double)(timeSimple))/CLOCKS_PER_SEC;
+    double mTime = static_cast<double>(timeEdlib)/CLOCKS_PER_SEC;
+    double sTime = static_cast<double>(timeSimple)/CLOCKS_PER_SEC;
     printf("Time Edlib: %lf\n", mTime);
     printf("Time Simple: %lf\n", sTime);
     printf("Times faster: %.2lf\n", sTime / mTime);
@@ -219,7 +220,7 @@ bool executeTest(const char* query, int queryLength,
 
     bool pass = true;
 
-    int scoreSimple; int numLocationsSimple; int* endLocationsSimple;
+    int scoreSimple = -1; int numLocationsSimple = 0; int* endLocationsSimple = NULL;
     calcEditDistanceSimple(query, queryLength, target, targetLength,
                            mode, &scoreSimple, &endLocationsSimple, &numLocationsSimple);
 
@@ -412,8 +413,10 @@ bool test10() {
 bool test11() {
     int queryLength = 8;
     int targetLength = 8;
-    char query[8] =  {-127, 127, -55, 0, 42, 0,      127, -55};
-    char target[8] = {-127, 127,      0, 42, 0, -55, 127,  42};
+    // NOTE(Martin): I am using CHAR_MIN and CHAR_MAX because 'char' type is not guaranteed to be
+    //   signed or unsigned by compiler, we can't know if it is signed or unsigned.
+    char query[8] =  {CHAR_MIN, CHAR_MIN + (CHAR_MAX - CHAR_MIN) / 2, CHAR_MAX};
+    char target[8] = {CHAR_MIN, CHAR_MIN + (CHAR_MAX - CHAR_MIN) / 2 + 1, CHAR_MAX};
 
     bool r = executeTest(query, queryLength, target, targetLength, EDLIB_MODE_HW);
     r = r && executeTest(query, queryLength, target, targetLength, EDLIB_MODE_NW);
@@ -429,8 +432,8 @@ bool test12() {
     const char* query = "GCATATCAATAAGCGGAGGA";
     const char* target = "TAACAAGGTTTCCGTAGGTGAACCTGCGGAAGGATCATTATCGAATAAACTTGATGGGTTGTCGCTGGCTTCTAGGAGCATGTGCACATCCGTCATTTTTATCCATCCACCTGTGCACCTTTTGTAGTCTTTGGAGGTAATAAGCGTGAATCTATCGAGGTCCTCTGGTCCTCGGAAAGAGGTGTTTGCCATATGGCTCGCCTTTGATACTCGCGAGTTACTCTAAGACTATGTCCTTTCATATACTACGAATGTAATAGAATGTATTCATTGGGCCTCAGTGCCTATAAAACATATACAACTTTCAGCAACGGATCTCTTGGCTCTCGCATCGATGAAGAACGCAGCGAAATGCGATAAGTAATGTGAATTGCAGAATTCAGTGAATCATCGAATCTTTGAACGCACCTTGCGCTCCTTGGTATTCCGAGGAGCATGCCTGTTTGAGTGTCATTAAATTCTCAACCCCTTCCGGTTTTTTGACTGGCTTTGGGGCTTGGATGTGGGGGATTCATTTGCGGGCCTCTGTAGAGGTCGGCTCCCCTGAAATGCATTAGTGGAACCGTTTGCGGTTACCGTCGCTGGTGTGATAACTATCTATGCCAAAGACAAACTGCTCTCTGATAGTTCTGCTTCTAACCGTCCATTTATTGGACAACATTATTATGAACACTTGACCTCAAATCAGGTAGGACTACCCGCTGAACTTAAGCATATCAATAAGCGGAGGAAAAGAAACTAACAAGGATTCCCCTAGTAACTGCGAGTGAAGCGGGAAAAGCTCAAATTTAAAATCTGGCGGTCTTTGGCCGTCCGAGTTGTAATCTAGAGAAGCGACACCCGCGCTGGACCGTGTACAAGTCTCCTGGAATGGAGCGTCATAGAGGGTGAGAATCCCGTCTCTGACACGGACTACCAGGGCTTTGTGGTGCGCTCTCAAAGAGTCGAGTTGTTTGGGAATGCAGCTCTAAATGGGTGGTAAATTCCATCTAAAGCTAAATATTGGCGAGAGACCGATAGCGAACAAGTACCGTGAGGGAAAGATGAAAAGAACTTTGGAAAGAGAGTTAAACAGTACGTGAAATTGCTGAAAGGGAAACGCTTGAAGTCAGTCGCGTTGGCCGGGGATCAGCCTCGCTTTTGCGTGGTGTATTTCCTGGTTGACGGGTCAGCATCAATTTTGACCGCTGGAAAAGGACTTGGGGAATGTGGCATCTTCGGATGTGTTATAGCCCTTTGTCGCATACGGCGGTTGGGATTGAGGAACTCAGCACGCCGCAAGGCCGGGTTTCGACCACGTTCGTGCTTAGGATGCTGGCATAATGGCTTTAATCGACCCGTCTTGAAACACGGACCAAGGAGTCTAACATGCCTGCGAGTGTTTGGGTGGAAAACCCGAGCGCGTAATGAAAGTGAAAGTTGAGATCCCTGTCGTGGGGAGCATCGACGCCCGGACCAGAACTTTTGGGACGGATCTGCGGTAGAGCATGTATGTTGGGACCCGAAAGATGGTGAACTATGCCTGAATAGGGTGAAGCCAGAGGAAACTCTGGTGGAGGCTCGTAGCGATTCTGACGTGCAAATCGATCGTCAAATTTGGGTATAGGGGCGAAAGACTAATCGAACCATCTAGTAGCTGGTTCCTGCCGAAGTTTCCCTCAGGATAGCAGAAACTCATATCAGATTTATGTGGTAAAGCGAATGATTAGAGGCCTTGGGGTTGAAACAACCTTAACCTATTCTCAAACTTTAAATATGTAAGAACGAGCCGTTTCTTGATTGAACCGCTCGGCGATTGAGAGTTTCTAGTGGGCCATTTTTGGTAAGCAGAACTGGCGATGCGGGATGAACCGAACGCGAGGTTAAGGTGCCGGAATTCACGCTCATCAGACACCACAAAAGGTGTTAGTTCATCTAGACAGCAGGACGGTGGCCATGGAAGTCGGAATCCGCTAAGGAGTGTGTAACAACTCACCTGCCGAATGAACTAGCCCTGAAAATGGATGGCGCTTAAGCGTGATACCCATACCTCGCCGTCAGCGTTGAAGTGACGCGCTGACGAGTAGGCAGGCGTGGAGGTCAGTGAAGAAGCCTTGGCAGTGATGCTGGGTGAAACGGCCTCC";
 
-    EdlibAlignResult result = edlibAlign(query, (int) std::strlen(query),
-                                         target, (int) std::strlen(target),
+    EdlibAlignResult result = edlibAlign(query, static_cast<int>(std::strlen(query)),
+                                         target, static_cast<int>(std::strlen(target)),
                                          edlibNewAlignConfig(-1, EDLIB_MODE_HW,EDLIB_TASK_LOC, additionalEqualities, 24));
     bool pass = result.status == EDLIB_STATUS_OK && result.editDistance == 0;
     printf(pass ? "\x1B[32m""OK""\x1B[0m\n" : "\x1B[31m""FAIL""\x1B[0m\n");
@@ -446,8 +449,8 @@ bool test13() {
     const char* query = "AA";
     const char* target = "B";
 
-    EdlibAlignResult result = edlibAlign(query, (int) std::strlen(query),
-                                         target, (int) std::strlen(target),
+    EdlibAlignResult result = edlibAlign(query, static_cast<int>(std::strlen(query)),
+                                         target, static_cast<int>(std::strlen(target)),
                                          edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
     bool pass = result.status == EDLIB_STATUS_OK && result.editDistance == 2;
     printf(pass ? "\x1B[32m""OK""\x1B[0m\n" : "\x1B[31m""FAIL""\x1B[0m\n");
@@ -463,8 +466,8 @@ bool test14() {
     const char* query = "AA";
     const char* target = "B";
 
-    EdlibAlignResult result = edlibAlign(query, (int) std::strlen(query),
-                                         target, (int) std::strlen(target),
+    EdlibAlignResult result = edlibAlign(query, static_cast<int>(std::strlen(query)),
+                                         target, static_cast<int>(std::strlen(target)),
                                          edlibNewAlignConfig(-1, EDLIB_MODE_SHW, EDLIB_TASK_PATH, NULL, 0));
     bool pass = result.status == EDLIB_STATUS_OK && result.editDistance == 2;
     printf(pass ? "\x1B[32m""OK""\x1B[0m\n" : "\x1B[31m""FAIL""\x1B[0m\n");
@@ -477,8 +480,8 @@ bool test15() {
     const char* query = "AAABBB";
     const char* target = "BBBC";
 
-    EdlibAlignResult result = edlibAlign(query, (int) std::strlen(query),
-                                         target, (int) std::strlen(target),
+    EdlibAlignResult result = edlibAlign(query, static_cast<int>(std::strlen(query)),
+                                         target, static_cast<int>(std::strlen(target)),
                                          edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_LOC, NULL, 0));
     bool pass = result.status == EDLIB_STATUS_OK && result.editDistance == 3;
     printf(pass ? "\x1B[32m""OK""\x1B[0m\n" : "\x1B[31m""FAIL""\x1B[0m\n");
@@ -491,8 +494,8 @@ bool test16() {
     const char* query = "BBBAAA";
     const char* target = "CBBB";
 
-    EdlibAlignResult result = edlibAlign(query, (int) std::strlen(query),
-                                         target, (int) std::strlen(target),
+    EdlibAlignResult result = edlibAlign(query, static_cast<int>(std::strlen(query)),
+                                         target, static_cast<int>(std::strlen(target)),
                                          edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_LOC, NULL, 0));
     bool pass = result.status == EDLIB_STATUS_OK && result.editDistance == 3;
     printf(pass ? "\x1B[32m""OK""\x1B[0m\n" : "\x1B[31m""FAIL""\x1B[0m\n");
@@ -549,12 +552,29 @@ bool testCustomEqualityRelation() {
     return allPass;
 }
 
+bool testEmptySequences() {
+    printf("Empty query or target:\n");
+
+    const char* emptySeq =  "";
+    const char* nonEmptySeq = "ACTG";
+    const int nonEmptySeqLength = 4;
+
+    bool r = true;
+    r = r && executeTest(emptySeq, 0, nonEmptySeq, nonEmptySeqLength, EDLIB_MODE_NW);
+    r = r && executeTest(nonEmptySeq, nonEmptySeqLength, emptySeq, 0, EDLIB_MODE_NW);
+    r = r && executeTest(emptySeq, 0, nonEmptySeq, nonEmptySeqLength, EDLIB_MODE_SHW);
+    r = r && executeTest(nonEmptySeq, nonEmptySeqLength, emptySeq, 0, EDLIB_MODE_SHW);
+    r = r && executeTest(emptySeq, 0, nonEmptySeq, nonEmptySeqLength, EDLIB_MODE_HW);
+    r = r && executeTest(nonEmptySeq, nonEmptySeqLength, emptySeq, 0, EDLIB_MODE_HW);
+    return r;
+}
+
 bool runTests() {
     // TODO: make this global vector where tests have to add themselves.
-    int numTests = 18;
+    int numTests = 19;
     bool (* tests [])() = {test1, test2, test3, test4, test5, test6,
                            test7, test8, test9, test10, test11, test12, test13, test14, test15, test16,
-                           testCigar, testCustomEqualityRelation};
+                           testCigar, testCustomEqualityRelation, testEmptySequences};
 
     bool allTestsPassed = true;
     for (int i = 0; i < numTests; i++) {
